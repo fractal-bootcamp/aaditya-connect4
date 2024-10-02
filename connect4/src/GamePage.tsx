@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useSpring, animated } from 'react-spring';
+import WinLose from './WinLose';
 
 const ROWS = 6;
 const COLS = 7;
@@ -6,19 +8,20 @@ const EMPTY = null;
 
 const createEmptyBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
 
-const GamePage = () => {
+const GamePage = ({ player1, player2, mode, onBackToStart }: { player1: string, player2: string, mode: string, onBackToStart: () => void }) => {
   const [board, setBoard] = useState(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState<'Red' | 'Yellow'>('Red');
   const [winner, setWinner] = useState<string | null>(null);
+  const [lastMove, setLastMove] = useState<{ row: number; col: number } | null>(null); 
 
   const dropDisc = (col: number) => {
-    if (winner) return; // If game is over, don't allow more moves
-
-    const newBoard = board.map(row => [...row]); // Copy board
+    if (winner) return; 
+    const newBoard = board.map(row => [...row]); 
     for (let row = ROWS - 1; row >= 0; row--) {
       if (newBoard[row][col] === EMPTY) {
         newBoard[row][col] = currentPlayer;
         setBoard(newBoard);
+        setLastMove({ row, col }); 
         checkWinner(newBoard, row, col);
         setCurrentPlayer(currentPlayer === 'Red' ? 'Yellow' : 'Red');
         return;
@@ -28,10 +31,10 @@ const GamePage = () => {
 
   const checkWinner = (newBoard: string[][], row: number, col: number) => {
     const player = newBoard[row][col];
-    if (checkDirection(newBoard, row, col, player, 1, 0) || // Horizontal
-        checkDirection(newBoard, row, col, player, 0, 1) || // Vertical
-        checkDirection(newBoard, row, col, player, 1, 1) || // Diagonal /
-        checkDirection(newBoard, row, col, player, 1, -1)) { // Diagonal \
+    if (checkDirection(newBoard, row, col, player, 1, 0) || 
+        checkDirection(newBoard, row, col, player, 0, 1) || 
+        checkDirection(newBoard, row, col, player, 1, 1) || 
+        checkDirection(newBoard, row, col, player, 1, -1)) { 
       setWinner(player);
     }
   };
@@ -55,12 +58,13 @@ const GamePage = () => {
     setBoard(createEmptyBoard());
     setWinner(null);
     setCurrentPlayer('Red');
+    setLastMove(null);
   };
 
   return (
     <div style={{ textAlign: 'center' }}>
       <h1>Connect Four</h1>
-      <h2>{winner ? `${winner} wins!` : `Current Player: ${currentPlayer}`}</h2>
+      <h2>{winner ? `${winner} Wins!` : `Current Player: ${currentPlayer === 'Red' ? player1 : player2}`}</h2>
       <div
         style={{
           display: 'grid',
@@ -96,24 +100,33 @@ const GamePage = () => {
         }}
       >
         {board.flatMap((row, rowIndex) =>
-          row.map((cell, colIndex) => (
-            <div
-              key={`${rowIndex}-${colIndex}`}
-              style={{
-                width: '100px',
-                height: '100px',
-                backgroundColor: '#00A',
-                borderRadius: '50%',
-                border: '2px solid #333',
-                background: cell === 'Red' ? 'red' : cell === 'Yellow' ? 'yellow' : 'white',
-              }}
-            />
-          ))
+          row.map((cell, colIndex) => {
+            const isLastMove = lastMove && lastMove.row === rowIndex && lastMove.col === colIndex;
+            const springProps = useSpring({
+              from: { transform: `translateY(-${100 * (rowIndex + 1)}px)` },
+              to: { transform: `translateY(0)` },
+              config: { tension: 200, friction: 30 },
+              reset: isLastMove,
+            });
+
+            return (
+              <animated.div
+                key={`${rowIndex}-${colIndex}`}
+                style={{
+                  ...springProps,
+                  width: '100px',
+                  height: '100px',
+                  backgroundColor: '#00A',
+                  borderRadius: '50%',
+                  border: '2px solid #333',
+                  background: cell === 'Red' ? 'red' : cell === 'Yellow' ? 'yellow' : 'white',
+                }}
+              />
+            );
+          })
         )}
       </div>
-      <button onClick={resetGame} style={{ marginTop: '20px', padding: '10px 20px', fontSize: '16px' }}>
-        Reset Game
-      </button>
+      {winner && <WinLose winner={winner} onRestart={resetGame} onBackToStart={onBackToStart} />}
     </div>
   );
 };
