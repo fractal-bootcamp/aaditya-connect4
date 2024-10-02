@@ -15,13 +15,13 @@ const GamePage = ({ player1, player2, mode, onBackToStart }: { player1: string, 
   const [lastMove, setLastMove] = useState<{ row: number; col: number } | null>(null); 
 
   const dropDisc = (col: number) => {
-    if (winner) return; 
-    const newBoard = board.map(row => [...row]); 
+    if (winner) return;
+    const newBoard = board.map(row => [...row]);
     for (let row = ROWS - 1; row >= 0; row--) {
       if (newBoard[row][col] === EMPTY) {
         newBoard[row][col] = currentPlayer;
         setBoard(newBoard);
-        setLastMove({ row, col }); 
+        setLastMove({ row, col });
         checkWinner(newBoard, row, col);
         setCurrentPlayer(currentPlayer === 'Red' ? 'Yellow' : 'Red');
         return;
@@ -34,7 +34,7 @@ const GamePage = ({ player1, player2, mode, onBackToStart }: { player1: string, 
     if (checkDirection(newBoard, row, col, player, 1, 0) || 
         checkDirection(newBoard, row, col, player, 0, 1) || 
         checkDirection(newBoard, row, col, player, 1, 1) || 
-        checkDirection(newBoard, row, col, player, 1, -1)) { 
+        checkDirection(newBoard, row, col, player, 1, -1)) {
       setWinner(player);
     }
   };
@@ -62,43 +62,21 @@ const GamePage = ({ player1, player2, mode, onBackToStart }: { player1: string, 
   };
 
   return (
-    <div style={{ textAlign: 'center' }}>
-      <h1>Connect Four</h1>
-      <h2>{winner ? `${winner} Wins!` : `Current Player: ${currentPlayer === 'Red' ? player1 : player2}`}</h2>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${COLS}, 100px)`,
-          gridGap: '5px',
-          justifyContent: 'center',
-          marginBottom: '20px'
-        }}
-      >
+    <div style={styles.container}>
+      <h1 style={styles.heading}>Connect Four</h1>
+      <h2 style={styles.subHeading}>{winner ? `${winner} Wins!` : `Current Player: ${currentPlayer === 'Red' ? player1 : player2}`}</h2>
+      <div style={styles.gridContainer}>
         {Array(COLS).fill(null).map((_, col) => (
           <button
             key={col}
             onClick={() => dropDisc(col)}
-            style={{
-              width: '100px',
-              height: '50px',
-              backgroundColor: '#333',
-              color: 'white',
-              fontSize: '16px',
-              cursor: 'pointer'
-            }}
+            style={styles.dropButton}
           >
             Drop
           </button>
         ))}
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${COLS}, 100px)`,
-          gridGap: '5px',
-          justifyContent: 'center'
-        }}
-      >
+      <div style={styles.grid}>
         {board.flatMap((row, rowIndex) =>
           row.map((cell, colIndex) => {
             const isLastMove = lastMove && lastMove.row === rowIndex && lastMove.col === colIndex;
@@ -113,13 +91,9 @@ const GamePage = ({ player1, player2, mode, onBackToStart }: { player1: string, 
               <animated.div
                 key={`${rowIndex}-${colIndex}`}
                 style={{
+                  ...styles.cell,
+                  background: cell === 'Red' ? 'red' : cell === 'Yellow' ? 'yellow' : '#fff',
                   ...springProps,
-                  width: '100px',
-                  height: '100px',
-                  backgroundColor: '#00A',
-                  borderRadius: '50%',
-                  border: '2px solid #333',
-                  background: cell === 'Red' ? 'red' : cell === 'Yellow' ? 'yellow' : 'white',
                 }}
               />
             );
@@ -129,6 +103,57 @@ const GamePage = ({ player1, player2, mode, onBackToStart }: { player1: string, 
       {winner && <WinLose winner={winner} onRestart={resetGame} onBackToStart={onBackToStart} />}
     </div>
   );
+};
+
+const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    backgroundColor: '#282c34',
+    minHeight: '100vh',
+    padding: '20px',
+    color: '#ffffff',
+  },
+  heading: {
+    fontSize: '3rem',
+    marginBottom: '20px',
+  },
+  subHeading: {
+    fontSize: '1.5rem',
+    marginBottom: '20px',
+  },
+  gridContainer: {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${COLS}, 100px)`,
+    gridGap: '10px',
+    marginBottom: '20px',
+  },
+  dropButton: {
+    backgroundColor: '#3b3f47',
+    color: '#ffffff',
+    fontSize: '1rem',
+    padding: '10px',
+    cursor: 'pointer',
+    border: 'none',
+    borderRadius: '5px',
+    transition: 'background-color 0.3s',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${COLS}, 100px)`,
+    gridGap: '10px',
+    marginBottom: '30px',
+  },
+  cell: {
+    width: '100px',
+    height: '100px',
+    borderRadius: '50%',
+    border: '2px solid #333',
+    backgroundColor: '#fff',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+  },
 };
 
 export default GamePage;
