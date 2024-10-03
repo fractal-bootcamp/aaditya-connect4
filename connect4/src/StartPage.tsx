@@ -1,49 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const StartPage = ({ onStart }: { onStart: (player1: string, player2: string, mode: string) => void }) => {
+interface Game {
+  player1: string;
+  player2: string;
+  winner: string;
+}
+
+const StartPage = ({ onStart, onJoinMultiplayer, oldGames }: { onStart: (p1: string, p2: string, mode: string) => void; onJoinMultiplayer: (p1: string) => void; oldGames: Game[] }) => {
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
-  const [mode, setMode] = useState('1v1');
+  const [mode, setMode] = useState<'1v1' | 'online'>('1v1');
+  const [selectedGame, setSelectedGame] = useState<string | null>(null); // Track selected game
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (player1 && (mode === '1v1' ? player2 : true)) {
-      onStart(player1, player2 || 'Computer', mode);
+  useEffect(() => {
+    // Optional: You can log or track the old games to confirm updates
+    console.log('Old games updated:', oldGames);
+  }, [oldGames]);
+
+  const handleStartGame = () => {
+    if (mode === '1v1') {
+      onStart(player1, player2, mode);
+    } else {
+      onJoinMultiplayer(player1);
     }
   };
 
   return (
     <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <h1 style={styles.heading}>Connect Four</h1>
-        <input
-          value={player1}
-          onChange={(e) => setPlayer1(e.target.value)}
-          placeholder="Player 1 Name"
-          style={styles.input}
-          required
-        />
-        {mode === '1v1' && (
+      <div style={styles.card}>
+        <h1 style={styles.title}>Connect Four</h1>
+        <div style={styles.formGroup}>
           <input
-            value={player2}
-            onChange={(e) => setPlayer2(e.target.value)}
-            placeholder="Player 2 Name"
+            type="text"
+            placeholder="Player 1 Name"
+            value={player1}
+            onChange={(e) => setPlayer1(e.target.value)}
             style={styles.input}
-            required
           />
-        )}
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-          style={styles.select}
-        >
-          <option value="1v1">1v1</option>
-          <option value="1vComputer">1vComputer</option>
-        </select>
-        <button type="submit" style={styles.button}>
+          {mode === '1v1' && (
+            <input
+              type="text"
+              placeholder="Player 2 Name"
+              value={player2}
+              onChange={(e) => setPlayer2(e.target.value)}
+              style={styles.input}
+            />
+          )}
+        </div>
+        <div style={styles.formGroup}>
+          <select value={mode} onChange={(e) => setMode(e.target.value as '1v1' | 'online')} style={styles.select}>
+            <option value="1v1">1v1 Local</option>
+            <option value="online">Online Multiplayer</option>
+          </select>
+        </div>
+        <button onClick={handleStartGame} style={styles.button}>
           Start Game
         </button>
-      </form>
+      </div>
+
+      {/* Old Games Section */}
+      <div style={styles.oldGamesSection}>
+        <h2>Old Games</h2>
+        {oldGames.length === 0 ? (
+          <p>No games played yet.</p>
+        ) : (
+          oldGames.map((game, index) => (
+            <div key={index} style={styles.oldGameContainer}>
+              <button
+                style={styles.oldGameButton}
+                onClick={() => setSelectedGame(`Winner: ${game.winner}`)}
+              >
+                {game.player1} vs {game.player2}
+              </button>
+            </div>
+          ))
+        )}
+        {selectedGame && <div style={styles.winnerDisplay}>{selectedGame}</div>}
+      </div>
     </div>
   );
 };
@@ -51,51 +84,82 @@ const StartPage = ({ onStart }: { onStart: (player1: string, player2: string, mo
 const styles = {
   container: {
     display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    backgroundColor: '#282c34',
-    color: '#ffffff',
-  },
-  form: {
-    backgroundColor: '#3b3f47',
-    padding: '40px',
-    borderRadius: '10px',
-    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-    display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    minHeight: '100vh',
+    backgroundColor: '#f4f4f9',
   },
-  heading: {
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: '10px',
+    padding: '40px',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+    textAlign: 'center',
+    maxWidth: '400px',
+    width: '100%',
     marginBottom: '20px',
+  },
+  title: {
     fontSize: '2.5rem',
+    marginBottom: '20px',
+    color: '#333',
+  },
+  formGroup: {
+    marginBottom: '20px',
   },
   input: {
-    marginBottom: '15px',
-    padding: '10px',
-    width: '250px',
+    width: '100%',
+    padding: '12px',
+    marginBottom: '10px',
+    border: '1px solid #ddd',
     borderRadius: '5px',
-    border: 'none',
-    fontSize: '1rem',
+    fontSize: '16px',
+    boxSizing: 'border-box',
   },
   select: {
-    marginBottom: '20px',
-    padding: '10px',
-    width: '270px',
+    width: '100%',
+    padding: '12px',
+    border: '1px solid #ddd',
     borderRadius: '5px',
-    border: 'none',
-    fontSize: '1rem',
+    fontSize: '16px',
+    boxSizing: 'border-box',
   },
   button: {
-    padding: '10px 20px',
-    fontSize: '1rem',
-    backgroundColor: '#007BFF',
-    color: '#ffffff',
+    backgroundColor: '#4CAF50',
+    color: '#fff',
+    padding: '12px 20px',
     border: 'none',
     borderRadius: '5px',
+    fontSize: '16px',
     cursor: 'pointer',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
-    transition: 'background-color 0.3s',
+    width: '100%',
+  },
+  oldGamesSection: {
+    backgroundColor: '#fff',
+    borderRadius: '10px',
+    padding: '20px',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+    maxWidth: '400px',
+    width: '100%',
+  },
+  oldGameContainer: {
+    marginBottom: '10px',
+  },
+  oldGameButton: {
+    backgroundColor: '#3b3f47',
+    color: '#ffffff',
+    padding: '10px',
+    fontSize: '16px',
+    borderRadius: '5px',
+    width: '100%',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  winnerDisplay: {
+    marginTop: '20px',
+    fontSize: '18px',
+    color: '#333',
+    fontWeight: 'bold',
   },
 };
 

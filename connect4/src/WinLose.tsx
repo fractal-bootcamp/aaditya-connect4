@@ -1,6 +1,16 @@
 import React from 'react';
 
-const WinLose = ({ winner, onRestart, onBackToStart }: { winner: string, onRestart: () => void, onBackToStart: () => void }) => {
+const WinLose = ({
+  winner,
+  onRestart,
+  onBackToStart,
+  onReplaySameUser,
+}: {
+  winner: string;
+  onRestart: () => void;
+  onBackToStart: () => void;
+  onReplaySameUser: () => void;
+}) => {
   return (
     <div
       style={{
@@ -27,6 +37,12 @@ const WinLose = ({ winner, onRestart, onBackToStart }: { winner: string, onResta
           style={{ marginTop: '10px', padding: '10px 20px', fontSize: '16px', marginLeft: '10px' }}
         >
           Back to Start
+        </button>
+        <button
+          onClick={onReplaySameUser}
+          style={{ marginTop: '10px', padding: '10px 20px', fontSize: '16px', marginLeft: '10px' }}
+        >
+          Replay Same User
         </button>
       </div>
     </div>
