@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 
 interface StartPageProps {
-  onStart: (player1: string, player2: string) => void;
+  onStart: (player1: string, player2: string, mode: '1v1' | '1vComputer') => void;
+  oldGames: { player1: string, player2: string, winner: string }[];
 }
 
-const StartPage = ({ onStart }: StartPageProps) => {
+const StartPage: React.FC<StartPageProps> = ({ onStart, oldGames }) => {
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
+  const [gameMode, setGameMode] = useState<'1v1' | '1vComputer'>('1v1');
 
   const handleStart = () => {
-    if (player1.trim() && player2.trim()) {
-      onStart(player1, player2); // Pass the names to the parent component
+    if (gameMode === '1v1') {
+      onStart(player1, player2, gameMode);
+    } else {
+      onStart(player1, 'Computer', gameMode); // Player 2 is the computer in 1vComputer mode
     }
   };
 
@@ -18,6 +22,7 @@ const StartPage = ({ onStart }: StartPageProps) => {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>Connect Four</h1>
+
         <div style={styles.formGroup}>
           <input
             type="text"
@@ -26,17 +31,52 @@ const StartPage = ({ onStart }: StartPageProps) => {
             onChange={(e) => setPlayer1(e.target.value)}
             style={styles.input}
           />
-          <input
-            type="text"
-            placeholder="Player 2 Name"
-            value={player2}
-            onChange={(e) => setPlayer2(e.target.value)}
-            style={styles.input}
-          />
         </div>
-        <button onClick={handleStart} style={styles.button}>
+
+        {gameMode === '1v1' && (
+          <div style={styles.formGroup}>
+            <input
+              type="text"
+              placeholder="Player 2 Name"
+              value={player2}
+              onChange={(e) => setPlayer2(e.target.value)}
+              style={styles.input}
+            />
+          </div>
+        )}
+
+        <div style={styles.formGroup}>
+          <label htmlFor="gameMode" style={styles.label}>Game Mode:</label>
+          <select
+            id="gameMode"
+            value={gameMode}
+            onChange={(e) => setGameMode(e.target.value as '1v1' | '1vComputer')}
+            style={styles.select}
+          >
+            <option value="1v1">1v1</option>
+            <option value="1vComputer">1vComputer</option>
+          </select>
+        </div>
+
+        <button onClick={handleStart} style={styles.startButton}>
           Start Game
         </button>
+
+        {/* Old Games Section */}
+        <div style={styles.oldGamesSection}>
+          <h2>Old Games</h2>
+          {oldGames.length === 0 ? (
+            <p>No games played yet.</p>
+          ) : (
+            <ul style={styles.oldGamesList}>
+              {oldGames.map((game, index) => (
+                <li key={index} style={styles.oldGameItem}>
+                  <strong>{game.player1}</strong> vs <strong>{game.player2}</strong> - Winner: <strong>{game.winner}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -45,55 +85,80 @@ const StartPage = ({ onStart }: StartPageProps) => {
 const styles = {
   container: {
     display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #FF6F91 0%, #FFC15E 100%)',
+    alignItems: 'center',
+    height: '100vh',
+    background: 'linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%)',
     padding: '20px',
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: '15px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backdropFilter: 'blur(20px)',
+    borderRadius: '20px',
     padding: '40px',
-    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
+    boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.1)',
     textAlign: 'center',
     width: '100%',
     maxWidth: '400px',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
   },
   title: {
-    fontSize: '2.5rem',
-    marginBottom: '30px',
+    fontSize: '3rem',
     color: '#333',
-    fontWeight: 'bold',
-    fontFamily: "'Roboto', sans-serif",
+    marginBottom: '30px',
+    fontFamily: "'Poppins', sans-serif",
   },
   formGroup: {
-    marginBottom: '30px',
+    marginBottom: '20px',
   },
   input: {
     width: '100%',
     padding: '12px',
-    marginBottom: '20px',
-    border: '2px solid #ddd',
-    borderRadius: '10px',
-    fontSize: '16px',
-    boxSizing: 'border-box',
-    fontFamily: "'Roboto', sans-serif",
-    transition: 'border-color 0.3s',
+    borderRadius: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    fontSize: '1.1rem',
+    color: '#333',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
   },
-  button: {
-    background: 'linear-gradient(135deg, #FF6F91 0%, #FFC15E 100%)',
+  select: {
+    width: '100%',
+    padding: '12px',
+    borderRadius: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    fontSize: '1.1rem',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
+  },
+  startButton: {
+    width: '100%',
+    padding: '14px',
+    fontSize: '1.3rem',
     color: '#fff',
-    padding: '15px 30px',
+    backgroundColor: '#FF5722',
     border: 'none',
-    borderRadius: '10px',
-    fontSize: '18px',
-    fontWeight: 'bold',
+    borderRadius: '12px',
     cursor: 'pointer',
-    transition: 'transform 0.3s, box-shadow 0.3s',
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.2)',
-    fontFamily: "'Roboto', sans-serif",
+    transition: 'background-color 0.3s ease, transform 0.2s ease',
+    boxShadow: '0px 10px 15px rgba(0, 0, 0, 0.2)',
+  },
+  oldGamesSection: {
+    marginTop: '30px',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: '20px',
+    borderRadius: '12px',
+    backdropFilter: 'blur(10px)',
+    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.1)',
+  },
+  oldGamesList: {
+    listStyleType: 'none',
+    padding: 0,
+  },
+  oldGameItem: {
+    fontSize: '1rem',
+    color: '#333',
+    margin: '10px 0',
+    fontFamily: "'Poppins', sans-serif",
   },
 };
 
