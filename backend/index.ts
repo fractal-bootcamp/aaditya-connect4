@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
@@ -21,12 +21,6 @@ interface GameRoom {
   player2: string | null;
 }
 
-interface CompletedGame {
-  player1: string;
-  player2: string;
-  winner: Player;
-}
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -39,14 +33,13 @@ const io = new Server(server, {
 app.use(cors());
 
 const gameRooms: { [key: string]: GameRoom } = {};
-const completedGames: CompletedGame[] = []; // List of completed games
 
 const checkWinner = (board: Board, row: number, col: number, player: Player): boolean => {
   const directions = [
     { rowDir: 0, colDir: 1 },  // Horizontal
     { rowDir: 1, colDir: 0 },  // Vertical
     { rowDir: 1, colDir: 1 },  // Diagonal down-right
-    { rowDir: 1, colDir: -1 }, // Diagonal down-left
+    { rowDir: 1, colDir: -1 }  // Diagonal down-left
   ];
 
   const inBounds = (r: number, c: number) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
@@ -108,14 +101,15 @@ io.on('connection', (socket: Socket) => {
       room.player2 = player2;
       socket.join(roomCode);
       socket.emit('game_joined', { roomCode, player: 'Yellow' });
-      io.to(roomCode).emit('game_state', room);
+      io.to(roomCode).emit('game_state', room); // Emit to both players
     } else {
       socket.emit('error', 'Game not found or full');
     }
   });
 
   socket.on('game_event', ({ type, data }) => {
-    const room = Object.values(gameRooms).find((room) => room.players[socket.id]);
+    const roomCode = Object.keys(gameRooms).find(code => gameRooms[code].players[socket.id]);
+    const room = roomCode ? gameRooms[roomCode] : null;
     if (!room) return;
 
     if (type === 'move' && room.currentPlayer && !room.winner) {
@@ -128,18 +122,11 @@ io.on('connection', (socket: Socket) => {
           // Check for a winner after the move
           if (checkWinner(room.board, row, col, room.currentPlayer)) {
             room.winner = room.currentPlayer;
-            completedGames.push({
-              player1: room.player1!,
-              player2: room.player2!,
-              winner: room.currentPlayer,
-            });
-            io.to(Object.keys(room.players)[0]).emit('game_state', room);
-            return;
           }
 
           // Switch current player
           room.currentPlayer = room.currentPlayer === 'Red' ? 'Yellow' : 'Red';
-          io.to(Object.keys(room.players)[0]).emit('game_state', room);
+          io.to(roomCode).emit('game_state', room); // Emit updated state to all clients in the room
           break;
         }
       }
@@ -147,22 +134,20 @@ io.on('connection', (socket: Socket) => {
       room.board = createEmptyBoard();
       room.currentPlayer = 'Red';
       room.winner = null;
-      io.to(Object.keys(room.players)[0]).emit('game_state', room);
+      io.to(roomCode).emit('game_state', room); // Emit reset state to all clients
     }
-  });
-
-  // Send the completed games when requested
-  socket.on('get_completed_games', () => {
-    socket.emit('completed_games', completedGames);
   });
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
-    const room = Object.values(gameRooms).find((room) => room.players[socket.id]);
+    const roomCode = Object.keys(gameRooms).find(code => gameRooms[code].players[socket.id]);
+    const room = roomCode ? gameRooms[roomCode] : null;
     if (room) {
       delete room.players[socket.id];
       if (Object.keys(room.players).length === 0) {
-        delete gameRooms[room];
+        delete gameRooms[roomCode]; // Delete the room if no players left
+      } else {
+        io.to(roomCode).emit('game_state', room); // Notify the remaining player
       }
     }
   });
