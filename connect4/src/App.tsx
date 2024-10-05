@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 import StartPage from './StartPage';
 import GamePage from './GamePage';
+import Lobby from './Lobby';
+
+// Connect to the backend via Socket.io
+const socket = io('http://localhost:3001');
 
 const App = () => {
   const [isGameStarted, setIsGameStarted] = useState(false);
+  const [inLobby, setInLobby] = useState(false);
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
-  const [gameMode, setGameMode] = useState<'1v1' | '1vComputer'>('1v1');
+  const [gameMode, setGameMode] = useState<'1v1' | '1vComputer' | 'multiplayer'>('1v1');
   const [board, setBoard] = useState<(string | null)[][]>(
     Array.from({ length: 6 }, () => Array(7).fill(null))
   );
   const [currentPlayer, setCurrentPlayer] = useState<'Red' | 'Blue'>('Red');
   const [winner, setWinner] = useState<string | null>(null);
   const [oldGames, setOldGames] = useState<{ player1: string, player2: string, winner: string }[]>([]);
+  const [roomCode, setRoomCode] = useState('');
+  const [player, setPlayer] = useState<'Red' | 'Blue' | null>(null);
 
   useEffect(() => {
     // Load old games from localStorage when the app loads
@@ -31,12 +39,51 @@ const App = () => {
     setOldGames(updatedOldGames);
   };
 
+  const checkWinner = (newBoard: (string | null)[][], row: number, col: number, player: string): boolean => {
+    const directions = [
+      { rowDir: 0, colDir: 1 },  // Horizontal
+      { rowDir: 1, colDir: 0 },  // Vertical
+      { rowDir: 1, colDir: 1 },  // Diagonal down-right
+      { rowDir: 1, colDir: -1 }  // Diagonal down-left
+    ];
+
+    for (const { rowDir, colDir } of directions) {
+      let count = 1;
+
+      // Check in one direction
+      for (let i = 1; i < 4; i++) {
+        const newRow = row + i * rowDir;
+        const newCol = col + i * colDir;
+        if (newBoard[newRow] && newBoard[newRow][newCol] === player) {
+          count++;
+        } else {
+          break;
+        }
+      }
+
+      // Check in the opposite direction
+      for (let i = 1; i < 4; i++) {
+        const newRow = row - i * rowDir;
+        const newCol = col - i * colDir;
+        if (newBoard[newRow] && newBoard[newRow][newCol] === player) {
+          count++;
+        } else {
+          break;
+        }
+      }
+
+      if (count >= 4) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const handleMove = (col: number) => {
     if (winner) return; // Prevent further moves if there is a winner
 
     const newBoard = [...board];
 
-    // Find the lowest available row in the selected column
     for (let row = 5; row >= 0; row--) {
       if (newBoard[row][col] === null) {
         newBoard[row][col] = currentPlayer;
@@ -48,171 +95,17 @@ const App = () => {
           setWinner(winningPlayer); // Assign winner name
           saveGameResult(winningPlayer); // Save the game result
         } else {
-          if (gameMode === '1v1') {
-            setCurrentPlayer(currentPlayer === 'Red' ? 'Blue' : 'Red'); // Switch players for 1v1 mode
-          } else if (gameMode === '1vComputer' && currentPlayer === 'Red') {
-            // After the user's move, let the AI make its move
-            setTimeout(() => {
-              const aiMove = getBestMove(newBoard);
-              if (aiMove !== null) {
-                makeAIMove(aiMove, newBoard);
-              }
-            }, 500); // Adding a delay for AI to "think"
-          }
+          setCurrentPlayer(currentPlayer === 'Red' ? 'Blue' : 'Red'); // Switch players for 1v1 mode
         }
         break;
       }
     }
   };
 
-  // Function to check if there is a winner
-  const checkWinner = (board: (string | null)[][], row: number, col: number, player: string): boolean => {
-    // Helper to check a line of four cells
-    const checkDirection = (direction: { rowDir: number, colDir: number }) => {
-      let count = 0;
-      for (let i = -3; i <= 3; i++) {
-        const newRow = row + i * direction.rowDir;
-        const newCol = col + i * direction.colDir;
-        if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 7 && board[newRow][newCol] === player) {
-          count++;
-          if (count === 4) return true;
-        } else {
-          count = 0;
-        }
-      }
-      return false;
-    };
-
-    // Check horizontal, vertical, and two diagonals
-    const directions = [
-      { rowDir: 0, colDir: 1 },  // Horizontal
-      { rowDir: 1, colDir: 0 },  // Vertical
-      { rowDir: 1, colDir: 1 },  // Diagonal down-right
-      { rowDir: 1, colDir: -1 }  // Diagonal down-left
-    ];
-
-    return directions.some(direction => checkDirection(direction));
-  };
-
-  // Function to determine the best move for the AI using Minimax
-  const getBestMove = (board: (string | null)[][]): number | null => {
-    const availableColumns = [];
-    for (let col = 0; col < 7; col++) {
-      if (board[0][col] === null) availableColumns.push(col);
-    }
-
-    let bestScore = -Infinity;
-    let bestMove = null;
-
-    availableColumns.forEach(col => {
-      const newBoard = board.map(row => [...row]); // Create a deep copy of the board
-
-      // Drop AI's piece in this column
-      for (let row = 5; row >= 0; row--) {
-        if (newBoard[row][col] === null) {
-          newBoard[row][col] = 'Blue';
-          break;
-        }
-      }
-
-      // Evaluate the board using Minimax
-      const score = minimax(newBoard, 4, false); // Depth of 4 for simplicity
-      if (score > bestScore) {
-        bestScore = score;
-        bestMove = col;
-      }
-    });
-
-    return bestMove;
-  };
-
-  // Minimax algorithm to evaluate the board
-  const minimax = (board: (string | null)[][], depth: number, isMaximizing: boolean): number => {
-    if (depth === 0) return 0; // Depth limit
-    const winner = checkFullWinner(board); // Check for full game winner
-    if (winner === 'Blue') return 10;
-    if (winner === 'Red') return -10;
-    if (isBoardFull(board)) return 0; // Tie
-
-    const availableColumns = [];
-    for (let col = 0; col < 7; col++) {
-      if (board[0][col] === null) availableColumns.push(col);
-    }
-
-    if (isMaximizing) {
-      let maxEval = -Infinity;
-      for (const col of availableColumns) {
-        const newBoard = board.map(row => [...row]);
-
-        // Simulate dropping the Blue piece
-        for (let row = 5; row >= 0; row--) {
-          if (newBoard[row][col] === null) {
-            newBoard[row][col] = 'Blue';
-            break;
-          }
-        }
-
-        const evalScore = minimax(newBoard, depth - 1, false);
-        maxEval = Math.max(maxEval, evalScore);
-      }
-      return maxEval;
-    } else {
-      let minEval = Infinity;
-      for (const col of availableColumns) {
-        const newBoard = board.map(row => [...row]);
-
-        // Simulate dropping the Red piece
-        for (let row = 5; row >= 0; row--) {
-          if (newBoard[row][col] === null) {
-            newBoard[row][col] = 'Red';
-            break;
-          }
-        }
-
-        const evalScore = minimax(newBoard, depth - 1, true);
-        minEval = Math.min(minEval, evalScore);
-      }
-      return minEval;
-    }
-  };
-
-  // Helper function to check for a full game winner across the entire board
-  const checkFullWinner = (board: (string | null)[][]): string | null => {
-    for (let row = 0; row < 6; row++) {
-      for (let col = 0; col < 7; col++) {
-        if (board[row][col] !== null && checkWinner(board, row, col, board[row][col] as string)) {
-          return board[row][col];
-        }
-      }
-    }
-    return null;
-  };
-
-  const isBoardFull = (board: (string | null)[][]): boolean => {
-    return board[0].every(cell => cell !== null);
-  };
-
-  // Function to perform the AI's move
-  const makeAIMove = (col: number, newBoard: (string | null)[][]) => {
-    for (let row = 5; row >= 0; row--) {
-      if (newBoard[row][col] === null) {
-        newBoard[row][col] = 'Blue'; // AI is always Blue
-        setBoard([...newBoard]);
-        if (checkWinner(newBoard, row, col, 'Blue')) {
-          setWinner('Computer'); // AI wins
-          saveGameResult('Computer');
-        }
-        break;
-      }
-    }
-    setCurrentPlayer('Red'); // Switch back to the user after AI's move
-  };
-
-  const handleStartGame = (p1: string, p2: string, mode: '1v1' | '1vComputer') => {
-    setPlayer1(p1);
-    setPlayer2(mode === '1vComputer' ? 'Computer' : p2);
-    setGameMode(mode);
-    setIsGameStarted(true); // Start the game
+  // Multiplayer move handler via Socket.io
+  const handleMultiplayerMove = (col: number) => {
+    if (winner || currentPlayer !== player) return;
+    socket.emit('game_event', { type: 'move', data: { col } });
   };
 
   const handleReset = () => {
@@ -221,25 +114,96 @@ const App = () => {
     setCurrentPlayer('Red');
   };
 
-  const handleBackToStart = () => {
-    setIsGameStarted(false); // Go back to start page
-    handleReset(); // Reset the game state
+  const handleMultiplayerReset = () => {
+    socket.emit('game_event', { type: 'reset' });
   };
+
+  const handleStartGame = (p1: string, p2: string, mode: '1v1' | '1vComputer' | 'multiplayer') => {
+    setPlayer1(p1);
+    setPlayer2(mode === '1vComputer' ? 'Computer' : p2);
+    setGameMode(mode);
+    setIsGameStarted(true); // Start the game
+  };
+
+  const handleBackToStart = () => {
+    setIsGameStarted(false);
+    handleReset();
+  };
+
+  const handleEnterLobby = () => {
+    setInLobby(true);
+  };
+
+  const handleExitLobby = () => {
+    setInLobby(false);
+  };
+
+  const handleCreateGame = () => {
+    const p1 = prompt('Enter your name:');
+    if (p1) {
+      socket.emit('create_game', { player1: p1 });
+      socket.on('game_created', ({ roomCode, player }) => {
+        setRoomCode(roomCode);
+        setPlayer(player);
+        setPlayer1(p1);
+        setGameMode('multiplayer');
+        setInLobby(false);
+        setIsGameStarted(true);
+      });
+    }
+  };
+
+  const handleJoinGame = (roomId: string) => {
+    const p2 = prompt('Enter your name:');
+    if (p2) {
+      socket.emit('join_game', { roomCode: roomId, player2: p2 });
+      socket.on('game_joined', ({ roomCode, player }) => {
+        setRoomCode(roomCode);
+        setPlayer(player);
+        setPlayer2(p2);
+        setGameMode('multiplayer');
+        setInLobby(false);
+        setIsGameStarted(true);
+      });
+
+      socket.on('error', (message) => {
+        alert(message);
+      });
+    }
+  };
+
+  useEffect(() => {
+    // Listen for multiplayer game state updates
+    if (gameMode === 'multiplayer') {
+      socket.on('game_state', (gameState) => {
+        setBoard(gameState.board);
+        setCurrentPlayer(gameState.currentPlayer);
+        setWinner(gameState.winner);
+      });
+
+      return () => {
+        socket.off('game_state');
+      };
+    }
+  }, [gameMode]);
 
   return (
     <div>
-      {!isGameStarted ? (
-        <StartPage onStart={handleStartGame} oldGames={oldGames} />
+      {!isGameStarted && !inLobby ? (
+        <StartPage onStart={handleStartGame} onEnterLobby={handleEnterLobby} oldGames={oldGames} />
+      ) : inLobby ? (
+        <Lobby onCreateGame={handleCreateGame} onJoinGame={handleJoinGame} />
       ) : (
         <GamePage
           board={board}
           currentPlayer={currentPlayer}
           winner={winner}
-          onMove={handleMove}
-          onReset={handleReset}
+          onMove={gameMode === 'multiplayer' ? handleMultiplayerMove : handleMove}
+          onReset={gameMode === 'multiplayer' ? handleMultiplayerReset : handleReset}
           onBackToStart={handleBackToStart}
           player1={player1}
           player2={player2}
+          roomCode={roomCode}  // Pass roomCode here
         />
       )}
     </div>

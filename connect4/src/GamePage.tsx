@@ -1,8 +1,8 @@
 import React from 'react';
 import { useSpring, animated } from 'react-spring';
 import WinLose from './WinLose';
-import redChipImage from './img/bestchipred.png';  // Path to red chip image
-import blueChipImage from './img/bestchipblue.png'; // Path to blue chip image
+import redChipImage from './img/bestchipred.png';
+import blueChipImage from './img/bestchipblue.png';
 
 const GamePage = ({
   board,
@@ -10,16 +10,20 @@ const GamePage = ({
   winner,
   onMove,
   onReset,
+  onBackToStart,
   player1,
   player2,
+  roomCode, // Add roomCode as a prop
 }: {
   board: (string | null)[][];
   currentPlayer: 'Red' | 'Blue' | null;
   winner: string | null;
   onMove: (col: number) => void;
   onReset: () => void;
+  onBackToStart: () => void;
   player1: string;
   player2: string;
+  roomCode?: string; // roomCode is optional, only for multiplayer
 }) => {
   const renderCell = (row: number, col: number) => {
     const cellValue = board[row][col];
@@ -34,12 +38,10 @@ const GamePage = ({
 
     return (
       <div key={`${row}-${col}`} style={styles.cellContainer}>
-        {/* White grid circle */}
         <div style={styles.cell}>
           <div style={styles.circle} />
         </div>
 
-        {/* Animated Chip */}
         {cellValue && (
           <animated.div
             style={{
@@ -57,6 +59,14 @@ const GamePage = ({
 
   return (
     <div style={styles.container}>
+      {/* Display the room code for multiplayer */}
+      {roomCode && (
+        <div style={styles.roomCode}>
+          <h2>Game ID: {roomCode}</h2>
+          <p>Share this ID with another player to join the game!</p>
+        </div>
+      )}
+
       <div style={styles.playersContainer}>
         {/* Player 1 Info */}
         <div style={styles.playerContainer}>
@@ -91,8 +101,15 @@ const GamePage = ({
       {/* Reset button */}
       <button onClick={onReset} style={styles.resetButton}>Reset Game</button>
 
-      {/* Win message */}
-      {winner && <WinLose winner={winner} onRestart={onReset} />}
+      {/* WinLose component */}
+      {winner && (
+        <WinLose
+          winner={winner}
+          onRestart={onReset}
+          onBackToStart={onBackToStart}
+          onReplaySameUser={() => onReset()}
+        />
+      )}
     </div>
   );
 };
@@ -106,6 +123,11 @@ const styles = {
     padding: '20px',
     background: 'linear-gradient(135deg, #007adf 0%, #00ecbc 100%)',
     minHeight: '100vh',
+  },
+  roomCode: {
+    marginBottom: '20px',
+    textAlign: 'center',
+    color: '#fff',
   },
   playersContainer: {
     display: 'flex',
