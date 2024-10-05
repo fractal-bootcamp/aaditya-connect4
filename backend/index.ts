@@ -4,7 +4,7 @@ import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import cors from 'cors';
 
-type Player = 'Red' | 'Yellow';
+type Player = 'Red' | 'Blue';
 type Board = (string | null)[][];
 
 const ROWS = 6;
@@ -34,6 +34,7 @@ app.use(cors());
 
 const gameRooms: { [key: string]: GameRoom } = {};
 
+// Helper function to check for a winner
 const checkWinner = (board: Board, row: number, col: number, player: Player): boolean => {
   const directions = [
     { rowDir: 0, colDir: 1 },  // Horizontal
@@ -47,7 +48,6 @@ const checkWinner = (board: Board, row: number, col: number, player: Player): bo
   for (const { rowDir, colDir } of directions) {
     let count = 1;
 
-    // Check in the positive direction
     for (let i = 1; i < 4; i++) {
       const newRow = row + i * rowDir;
       const newCol = col + i * colDir;
@@ -58,7 +58,6 @@ const checkWinner = (board: Board, row: number, col: number, player: Player): bo
       }
     }
 
-    // Check in the negative direction
     for (let i = 1; i < 4; i++) {
       const newRow = row - i * rowDir;
       const newCol = col - i * colDir;
@@ -79,6 +78,7 @@ const checkWinner = (board: Board, row: number, col: number, player: Player): bo
 io.on('connection', (socket: Socket) => {
   console.log('A user connected:', socket.id);
 
+  // Handle creating a new game room
   socket.on('create_game', ({ player1 }) => {
     const roomCode = uuidv4();
     gameRooms[roomCode] = {
@@ -94,19 +94,21 @@ io.on('connection', (socket: Socket) => {
     console.log(`Game created with code: ${roomCode}`);
   });
 
+  // Handle joining an existing game room
   socket.on('join_game', ({ roomCode, player2 }) => {
     const room = gameRooms[roomCode];
     if (room && Object.keys(room.players).length < 2) {
-      room.players[socket.id] = 'Yellow';
+      room.players[socket.id] = 'Blue';
       room.player2 = player2;
       socket.join(roomCode);
-      socket.emit('game_joined', { roomCode, player: 'Yellow' });
+      socket.emit('game_joined', { roomCode, player: 'Blue' });
       io.to(roomCode).emit('game_state', room); // Emit to both players
     } else {
       socket.emit('error', 'Game not found or full');
     }
   });
 
+  // Handle game events
   socket.on('game_event', ({ type, data }) => {
     const roomCode = Object.keys(gameRooms).find(code => gameRooms[code].players[socket.id]);
     const room = roomCode ? gameRooms[roomCode] : null;
@@ -119,14 +121,12 @@ io.on('connection', (socket: Socket) => {
         if (room.board[row][col] === null) {
           room.board[row][col] = room.currentPlayer;
 
-          // Check for a winner after the move
           if (checkWinner(room.board, row, col, room.currentPlayer)) {
             room.winner = room.currentPlayer;
           }
 
-          // Switch current player
-          room.currentPlayer = room.currentPlayer === 'Red' ? 'Yellow' : 'Red';
-          io.to(roomCode).emit('game_state', room); // Emit updated state to all clients in the room
+          room.currentPlayer = room.currentPlayer === 'Red' ? 'Blue' : 'Red';
+          io.to(roomCode).emit('game_state', room);
           break;
         }
       }
@@ -134,10 +134,11 @@ io.on('connection', (socket: Socket) => {
       room.board = createEmptyBoard();
       room.currentPlayer = 'Red';
       room.winner = null;
-      io.to(roomCode).emit('game_state', room); // Emit reset state to all clients
+      io.to(roomCode).emit('game_state', room);
     }
   });
 
+  // Handle disconnection
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     const roomCode = Object.keys(gameRooms).find(code => gameRooms[code].players[socket.id]);
@@ -153,7 +154,6 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-// Start the server on port 3001
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);

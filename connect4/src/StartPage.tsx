@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 
 interface StartPageProps {
-  onStart: (player1: string, player2: string, mode: '1v1' | '1vComputer') => void;
+  onStart: (player1: string, player2: string, mode: '1v1' | '1vComputer' | 'multiplayer') => void;
+  onEnterLobby: () => void; // New prop to enter the lobby
   oldGames: { player1: string, player2: string, winner: string }[];
 }
 
-const StartPage: React.FC<StartPageProps> = ({ onStart, oldGames }) => {
+const StartPage: React.FC<StartPageProps> = ({ onStart, onEnterLobby, oldGames }) => {
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
-  const [gameMode, setGameMode] = useState<'1v1' | '1vComputer'>('1v1');
+  const [gameMode, setGameMode] = useState<'1v1' | '1vComputer' | 'multiplayer'>('1v1');
 
   const handleStart = () => {
-    if (gameMode === '1v1') {
-      onStart(player1, player2, gameMode);
+    if (gameMode === 'multiplayer') {
+      // Navigate to the lobby if "Online Multiplayer" is selected
+      onEnterLobby();
     } else {
-      onStart(player1, 'Computer', gameMode); // Player 2 is the computer in 1vComputer mode
+      // Start a local game for 1v1 or 1vComputer
+      onStart(player1, gameMode === '1vComputer' ? 'Computer' : player2, gameMode);
     }
   };
 
@@ -50,16 +53,17 @@ const StartPage: React.FC<StartPageProps> = ({ onStart, oldGames }) => {
           <select
             id="gameMode"
             value={gameMode}
-            onChange={(e) => setGameMode(e.target.value as '1v1' | '1vComputer')}
+            onChange={(e) => setGameMode(e.target.value as '1v1' | '1vComputer' | 'multiplayer')}
             style={styles.select}
           >
             <option value="1v1">1v1</option>
             <option value="1vComputer">1vComputer</option>
+            <option value="multiplayer">Online Multiplayer</option> {/* New Option */}
           </select>
         </div>
 
         <button onClick={handleStart} style={styles.startButton}>
-          Start Game
+          {gameMode === 'multiplayer' ? 'Enter Lobby' : 'Start Game'}
         </button>
 
         {/* Old Games Section */}
