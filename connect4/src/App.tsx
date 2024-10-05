@@ -4,7 +4,6 @@ import StartPage from './StartPage';
 import GamePage from './GamePage';
 import Lobby from './Lobby';
 
-// Connect to the backend via Socket.io
 const socket = io('http://localhost:3001');
 
 const App = () => {
@@ -23,7 +22,6 @@ const App = () => {
   const [player, setPlayer] = useState<'Red' | 'Blue' | null>(null);
 
   useEffect(() => {
-    // Load old games from localStorage when the app loads
     const storedGames = JSON.parse(localStorage.getItem('oldGames') || '[]');
     setOldGames(storedGames);
   }, []);
@@ -95,7 +93,47 @@ const App = () => {
           setWinner(winningPlayer); // Assign winner name
           saveGameResult(winningPlayer); // Save the game result
         } else {
-          setCurrentPlayer(currentPlayer === 'Red' ? 'Blue' : 'Red'); // Switch players for 1v1 mode
+          // Switch players for 1v1 mode or make AI move if 1vComputer mode
+          if (gameMode === '1v1') {
+            setCurrentPlayer(currentPlayer === 'Red' ? 'Blue' : 'Red');
+          } else if (gameMode === '1vComputer' && currentPlayer === 'Red') {
+            // Player has made their move; now make AI move
+            setCurrentPlayer('Blue');
+            setTimeout(() => {
+              makeAIMove(); // Call AI move after a small delay
+            }, 500); // Adding a delay for AI to "think"
+          }
+        }
+        break;
+      }
+    }
+  };
+
+  // AI move function
+  const makeAIMove = () => {
+    const newBoard = [...board];
+    
+    // Find an available column (random or based on a strategy)
+    const availableColumns = [];
+    for (let col = 0; col < 7; col++) {
+      if (newBoard[0][col] === null) availableColumns.push(col);
+    }
+
+    // AI chooses a random available column
+    const chosenCol = availableColumns[Math.floor(Math.random() * availableColumns.length)];
+
+    for (let row = 5; row >= 0; row--) {
+      if (newBoard[row][chosenCol] === null) {
+        newBoard[row][chosenCol] = 'Blue'; // AI is always "Blue"
+        setBoard(newBoard);
+
+        // Check if AI won
+        if (checkWinner(newBoard, row, chosenCol, 'Blue')) {
+          setWinner('Computer'); // AI wins
+          saveGameResult('Computer');
+        } else {
+          // Switch back to the human player's turn
+          setCurrentPlayer('Red');
         }
         break;
       }
